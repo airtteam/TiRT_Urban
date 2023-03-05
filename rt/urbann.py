@@ -36,14 +36,12 @@ class Urban:
     vaa_ = np.asarray([90,90])
     sza = 20
     saa = 5
-    n_part = 100
+    n_part = 500
     n_angle = 2
     canopy_effective_emissivity = []
     component_effective_emissivity = []
     canopy_brightness_temperature = []
-    pStreatV = 0
-    pRoofV = 0
-    pWallV = 0
+
 
     ###############################################
     #### geometrical optical theory
@@ -61,7 +59,6 @@ class Urban:
         sza = self.sza
         saa = self.saa
         raa = vaa - saa
-
 
 
         rd = np.pi / 180.0
@@ -88,7 +85,8 @@ class Urban:
             height2m1 = height2 - height1r
             if height2m1 <= 0: continue
             proj_roof = alpha2 * length2 * width2
-            projv_wall = alpha2 * (height2m1 * length2 * tantv * np.abs(np.cos((vaa - laa) * rd)) + height2m1 * width2 * tantv * np.abs(np.cos((vaa - waa) * rd)))
+            projv_wall = alpha2 * (height2m1 * length2 * tantv * np.abs(
+                np.cos((vaa - laa) * rd)) + height2m1 * width2 * tantv * np.abs(np.cos((vaa - waa) * rd)))
             projv_temp = projv_wall + proj_roof
             projv = projv + projv_temp
             projs_wall = alpha2 * (height2m1 * length2 * tants * np.abs(
@@ -199,11 +197,11 @@ class Urban:
             if (part1 < 90) * (part2 < 90) > 0: wsunlit = 1
 
             pWall_sunlit_fraction = pWall_sunlit_fraction + alpha1 * gapvs_wall * (
-                        (height1 * length1 * tantv * np.abs(np.cos((vaa - laa)) * rd)) * lsunlit + (
-                            height1 * width1 * tantv * np.cos((vaa - waa) * rd) * wsunlit))
+                        (height1 * length1 * tantv * np.cos((vaa - laa) * rd)) * lsunlit + (
+                            height1 * length1 * tantv * np.cos((vaa - laa) * rd) * wsunlit))
             pWall_sunlit_fraction_Weight = pWall_sunlit_fraction_Weight + alpha1 * gapv_wall * (
-                        (height1 * length1 * tantv * np.abs(np.cos((vaa - laa) * rd))) + (
-                            height1 * width1 * tantv * np.abs(np.cos((vaa - waa) * rd))))
+                        (height1 * length1 * tantv * np.cos((vaa - laa) * rd)) + (
+                            height1 * length1 * tantv * np.cos((vaa - laa) * rd)))
 
         pWall_sunlit_fraction = pWall_sunlit_fraction / pWall_sunlit_fraction_Weight
 
@@ -262,13 +260,10 @@ class Urban:
         Overlapping = np.sqrt(tantv * tantv + tants * tants - 2 * tantv * tants * up) / (tantv + tants)
         projvs = projv + projs * Overlapping
 
-
-
         pStreatV = np.exp(-projv)
         pStreatS = np.exp(-projs)
         pStreatV_sunlit = np.exp(-projvs)
         pStreatV_shaded = pStreatV - pStreatV_sunlit
-        pStreatV_sunlit_fraction = pStreatV_sunlit/pStreatV
 
         ## 计算屋顶的可视比例
         pRoofV = 0
@@ -312,7 +307,6 @@ class Urban:
             pRoofS = pRoofS + pRoofS_temp
             pRoof_sunlit_temp = alpha1 * gapvs_roof * (length1) * (width1)
             pRoof_sunlit = pRoof_sunlit + pRoof_sunlit_temp
-        pRoof_shaded = pRoofV - pRoof_sunlit
 
         pWall_sunlit_fraction = 0
         pWall_sunlit_fraction_Weight = 0
@@ -328,34 +322,27 @@ class Urban:
             projs = 0
             for kh in range(n_part):
                 height_temp = dheight * (kh + 0.5)
-                #### 计算在观测方向投影，分别有墙壁和屋顶的投影
+
                 proj = (shapes[:, 2] - height_temp) * shapes[:, 3] * tantv
                 ind = proj < 0
                 proj[ind] = 0
-                area_roof = shapes[:, 3] * shapes[:, 1] * shapes[:, 0]
-                area_roof[ind] = 0
-                proj_roof = np.sum(area_roof)
-                projv_wall = np.sum(proj * shapes[:, 0]) * np.abs(np.cos((vaa - laa) * rd)) +\
-                             np.sum(proj * shapes[:, 1]) * np.abs(np.cos((vaa - waa) * rd))
+
+                proj_roof = np.sum(shapes[:, 3] * shapes[:, 2] * shapes[:, 0])
+                projv_wall = np.sum(proj * shapes[:, 0]) * np.abs(np.cos((vaa - laa) * rd)) + np.sum(
+                    proj * shapes[:, 1]) * np.abs(np.cos((vaa - waa) * rd))
                 projv_temp = projv_wall + proj_roof
                 projv = projv + projv_temp
 
-                ### 计算在太阳角度投影
                 proj = (shapes[:, 2] - height_temp) * shapes[:, 3] * tants
                 ind = proj < 0
                 proj[ind] = 0
-                projs_wall = np.sum(proj * shapes[:, 0]) * np.abs(np.cos((saa - laa) * rd)) + \
-                             np.sum(proj * shapes[:, 1]) * np.abs(np.cos((saa - waa) * rd))
-                area_roof = shapes[:, 3] * shapes[:, 1] * shapes[:, 0]
-                area_roof[ind] = 0
-                proj_roof = np.sum(area_roof)
+                projs_wall = np.sum(proj * shapes[:, 0]) * np.abs(np.cos((saa - laa) * rd)) + np.sum(
+                    proj * shapes[:, 1]) * np.abs(np.cos((saa - waa) * rd))
                 projs_temp = projs_wall + proj_roof
                 projs = projs + projs_temp
             projv = projv / n_part
             projs = projs / n_part
             Overlapping = np.sqrt(tantv * tantv + tants * tants - 2 * tantv * tants * up) / (tantv + tants)
-            if Overlapping==0:
-                a = 1
             projvs = projv + projs * Overlapping
             gapv_wall = np.exp(-projv)
             gapvs_wall = np.exp(-projvs)
@@ -374,15 +361,13 @@ class Urban:
             if (part1 < 90) * (part2 < 90) > 0: wsunlit = 1
 
             pWall_sunlit_fraction = pWall_sunlit_fraction + alpha1 * gapvs_wall * (
-                        (height1 * length1 * tantv * np.abs(np.cos((vaa - laa) * rd))) * lsunlit +
-                        (height1 * width1 * tantv * np.abs(np.cos((vaa - waa) * rd)) * wsunlit))
+                        (height1 * length1 * tantv * np.cos((vaa - laa) * rd)) * lsunlit + (
+                            height1 * length1 * tantv * np.cos((vaa - laa) * rd) * wsunlit))
             pWall_sunlit_fraction_Weight = pWall_sunlit_fraction_Weight + alpha1 * gapv_wall * (
-                        (height1 * length1 * tantv * np.abs(np.cos((vaa - laa) * rd))) +
-                        (height1 * width1 * tantv * np.abs(np.cos((vaa - waa) * rd))))
+                        (height1 * length1 * tantv * np.cos((vaa - laa) * rd)) + (
+                            height1 * length1 * tantv * np.cos((vaa - laa) * rd)))
         if pWall_sunlit_fraction_Weight !=0:
             pWall_sunlit_fraction = pWall_sunlit_fraction / pWall_sunlit_fraction_Weight
-        else:
-            pWall_sunlit_fraction = 0
 
         # pWallV = 1 - pStreatV - pRoofV
         pWallV = pWall_sunlit_fraction_Weight
@@ -391,19 +376,9 @@ class Urban:
 
 
         pStreatV = 1-pWallV-pRoofV
-        pStreatV_sunlit = pStreatV * pStreatV_sunlit_fraction
-        pStreatV_shaded = pStreatV - pStreatV_sunlit
 
         if ifP ==1:
-            return pWallV*Ewall, pStreatV*Estreat, pRoofV*Eroof
-        elif ifP ==2:
-            return pWallV_sunlit * Ewall, pWallV_shaded * Ewall,\
-                   pStreatV_sunlit * Estreat, pStreatV_shaded * Estreat,\
-                   pRoof_sunlit*Eroof,pRoof_shaded*Eroof
-        elif ifP ==3:
-            return pWallV_sunlit, pWallV_shaded , \
-                   pStreatV_sunlit , pStreatV_shaded , \
-                   pRoof_sunlit , pRoof_shaded
+            return pWallV, pStreatV, pRoofV
         else:
             return pWallV*Ewall + pStreatV *Estreat + pRoofV*Eroof
 
@@ -435,16 +410,17 @@ class Urban:
         up = np.cos(raa * rd)
         tantv = np.tan(vza * rd)
         tants = np.tan(sza * rd)
-        laa = 0   ### the relatvie anzimuth angle of length
-        waa = laa + 90  #### the relative azimuth angle of width
+
 
         ###-------------------------------
-        ### 街道的计算
+        ### The same with direct function
         ###-------------------------------
         height1r = 0
         projv = 0
         projs = 0
         projvs = 0
+        laa = 0   ### the relatvie anzimuth angle of length
+        waa = laa + 90  #### the relative azimuth angle of width
         for kshape2 in range(n_shape):
             #### information of building will be projected
             shape2 = shapes[kshape2]
@@ -483,14 +459,11 @@ class Urban:
         pStreatV_sunlit = np.exp(-projvs)
         pStreatV_shaded = pStreatV - pStreatV_sunlit
 
-        ###-------------------------------
-        ### 墙壁的计算
-        ###-------------------------------
-        ### 半球投影的归一化
+        ### This is a coefficient for sin and cos
         if2 = 1.0
-        ### 上半球的方向
-        n_hza0 = 90
-        n_haa0 = 60
+        ### hemispericl angular space
+        n_hza0 = 18
+        n_haa0 = 72
         hza0 = np.linspace(0, 89, n_hza0) # hemisphere space
         haa0 = np.linspace(0, 360, n_haa0)
         hza,haa = np.meshgrid(hza0,haa0)
@@ -498,26 +471,13 @@ class Urban:
         haa = np.reshape(haa,-1)  ### to linear
 
         ### step of hza in rad unit rather zhan degree unit
-        dangle = np.pi/2.0/n_hza0 # 角度的步长
-        tantemp = np.tan(hza * rd)   ### 半球的正切
-        fweiplus = np.sin(hza*rd)*dangle *np.cos(hza*rd) # 角度的归一化方式, 一般是0.5
-        # fweiplus = np.sin(hza * rd) * dangle  ##### 一般是1.0
-        fweiplusSum = np.sum(if2*fweiplus)  ### 权重累计，如果没有meshgrid，应该是0.5，现在总和是0.5*n_haa0
-
-        ### 墙壁在观测方向的投影面积
-        tempSv = (np.sum(shapes[:, 3] * shapes[:, 2]  * shapes[:, 0]) * tantv * np.abs(np.cos((vaa - laa) * rd)) +
-                  np.sum(shapes[:, 3] * shapes[:, 2]  * shapes[:, 1]) * tantv * np.abs(np.cos((vaa - waa) * rd)))
-        ### 屋顶的投影面积
-        proj_rooff =  np.sum(shapes[:,1]*shapes[:,0]*shapes[:,3])
-        ### 透过屋顶又通过墙壁的到达街道的概率
-        f = np.exp(-(tempSv+proj_rooff))
-        ff =  np.exp(-(proj_rooff))
-        f0 = np.exp(-tempSv)
-        ### 被墙壁阻挡的概率
-
-        # i0v = ff-f
-        i0vv = 1-f
-        i0v = 1- f0
+        dangle = np.pi/2.0/n_hza0 # step in pi/2.0
+        tantemp = np.tan(hza * rd)/n_haa0   ### tan for projection part
+        # fweiplus = np.sin(hza*rd)*dangle *np.cos(hza*rd) #cos and sin  weight for each angle, its sum is 0
+        fweiplus = np.sin(hza * rd) * dangle
+        fweiplusSum = np.sum(fweiplus)  ### for some bad weight
+        # fweiplus = 1.0/if2/90.0
+        i0v = 1-pStreatV
         eu = 0.0
         ed = 0.0
         au = 0.5
@@ -534,189 +494,100 @@ class Urban:
             alpha1 = shape1[3]
             dheight = height1 / n_part
             height1p = height1
-
-            ### for each part of tree
             for kh in range(n_part):
-                ### info for shape to be projected
                 heighttemp = dheight * (kh+0.5)
-                # tempdS = length1 * dheight * tantv * alpha1
-                ### existance of shape1 in projection
-                tempdS = (length1 * dheight * alpha1)* tantv * np.abs(np.cos((vaa - laa) * rd)) +\
-                         (width1 * dheight * alpha1)* tantv * np.abs(np.cos((vaa - waa) * rd))
-                ftempv = 1.0  ### gap propertion in viewing direction
-                ### the one with higher height to project further
+                tempdS = length1 * dheight * tantv * alpha1
+                ftempv = 1.0
                 ind = (shapes[:,2]-heighttemp) > 0
                 if(np.sum(ind)>0):
-                    ### 从墙壁上一点到达建筑上部的概率
-                    proj_roof = np.sum(shapes[ind,1]*shapes[ind,0]*shapes[ind,3])
-                    projStemp = np.sum(shapes[ind,3] * (shapes[ind,2]-heighttemp) *shapes[ind,0])* \
-                                 tantemp * np.abs(np.cos((haa - laa) * rd)) + \
-                                 np.sum(shapes[ind,3] * (shapes[ind,2]-heighttemp) *shapes[ind,1]) * \
-                                 tantemp * np.abs(np.cos((haa - waa) * rd))
-                    ### gap frequency after such projection area
-                    ftemp = np.exp(-(projStemp))
-                    ### projection area in hemispheric space
+                    projStemp = (np.sum(shapes[ind,3] * (shapes[ind,2]-heighttemp) *shapes[ind,0])* tantemp * np.abs(np.cos((haa - laa) * rd)) +
+                            np.sum(shapes[ind,3] * (shapes[ind,2]-heighttemp) *shapes[ind,1]) * tantemp * np.abs(np.cos((haa - waa) * rd)))
+                    ftemp = np.exp(-projStemp)
                     tempSv =  (np.sum(shapes[ind,3] * (shapes[ind,2]-heighttemp) *shapes[ind,0])* tantv * np.abs(np.cos((vaa - laa) * rd)) +
                             np.sum(shapes[ind,3] * (shapes[ind,2]-heighttemp) *shapes[ind,1]) * tantv * np.abs(np.cos((vaa - waa) * rd)))
-                    ### gap frequency
-                    ftempv = np.exp(-(tempSv+proj_roof))
-                    eu = eu + np.sum(if2 *ftemp*fweiplus)/ fweiplusSum *tempdS*ftempv
+                    ftempv = np.exp(-tempSv)
+                    eu = eu + if2 *np.sum(ftemp*fweiplus)*tempdS*au*ftempv / fweiplusSum
                 # a hemisphere space
 
                 projStemp = 0
-                proj_roof = 0
                 ind = shapes[:, 2] < heighttemp
-                ### the height lower than the reference part, using the building height
                 if (np.sum(ind) > 0):
-                    proj_roof = proj_roof + np.sum(shapes[ind, 1] * shapes[ind, 0] * shapes[ind, 3])
                     projStemp = projStemp + (np.sum(shapes[ind,3] * shapes[ind,2] *shapes[ind,0])* tantemp * np.abs(np.cos((haa - laa) * rd)) +
                         np.sum(shapes[ind,3] * shapes[ind,2] *shapes[ind,1]) * tantemp * np.abs(np.cos((haa - waa) * rd)))
                 ind = shapes[:, 2] > heighttemp
-                ### the building height larger than the reference height, using the referneance height
                 if (np.sum(ind) > 0):
-                    proj_roof = proj_roof + np.sum(shapes[ind, 1] * shapes[ind, 0] * shapes[ind, 3])
                     projStemp = projStemp + (np.sum(shapes[ind, 3] * heighttemp * shapes[ind, 0]) * tantemp * np.abs(np.cos((haa - laa) * rd)) +
                                  np.sum(shapes[ind, 3] * heighttemp * shapes[ind, 1]) * tantemp * np.abs(np.cos((haa - waa) * rd)))
-                ftemp = np.exp(-(projStemp))
-                ### sum the downward hemispheric
-                ed = ed + np.sum(if2 * ftemp * fweiplus)/ fweiplusSum * tempdS  * ftempv
-
+                ftemp = np.exp(-projStemp)
+                ed = ed + if2 * np.sum(ftemp * fweiplus) * tempdS * ad * ftempv/ fweiplusSum
         eu = eu / i0v
         ed = ed / i0v
-        p = 1 - eu*0.5 - ed*0.5
-        print(vza,vaa,p)
-        if i0v == 0:
-            p = 0
-            eu = 0
-            ed = 0
+        p = 1 - eu - ed
+
 
         wr = 0.0
-        # for kshape1 in range(n_shape):
-        #     shape1 = shapes[kshape1]
-        #     length1 = shape1[0]
-        #     width1 = shape1[1]
-        #     height1 = shape1[2]
-        #     alpha1 = shape1[3]
-        #     heighttemp = height1
-        #     ind = (shapes[:, 2] - heighttemp) > 0
-        #     if (np.sum(ind) > 0):
-        #         proj_roof = np.sum(shapes[ind, 1] * shapes[ind, 0] * shapes[ind, 3])
-        #         projStemp = (np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 0]) * tantemp * np.abs(np.cos((haa - laa) * rd)) +
-        #                      np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 1]) * tantemp * np.abs(np.cos((haa - waa) * rd)))
-        #         ftemp = np.exp(-(projStemp))
-        #
-        #         tempdS = length1 * width1 * alpha1
-        #         tempSv = (np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 0]) * tantv * np.abs(np.cos((vaa - laa) * rd)) +
-        #                   np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 1]) * tantv * np.abs(np.cos((vaa - waa) * rd)))
-        #         ftempv = np.exp(-(tempSv+proj_roof))
-        #         wr =  wr + if2 * np.sum((1-ftemp) * fweiplus) * tempdS * ftempv/ fweiplusSum
-
-
         heighttemp = 0
-        ws = 0
-        C = 1.05
-        ind = (shapes[:, 2] - heighttemp) > 0
-        if (np.sum(ind) > 0):
-            proj_roof = np.sum(shapes[ind, 1] * shapes[ind, 0] * shapes[ind, 3])
-            projStemp = np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 0]) * tantemp * np.abs(np.cos((haa - laa) * rd)) + \
-                         np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 1]) * tantemp * np.abs(np.cos((haa - waa) * rd))
-            # projStemp =  np.sum(shapes[ind, 3] * (shapes[ind, 2]) * shapes[ind, 0])* tantemp
-            ftemp = np.exp(-(projStemp))
-            tempSv = (np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 0]) * tantv * np.abs(np.cos((vaa - laa) * rd)) +
-                      np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 1]) * tantv * np.abs(np.cos((vaa - waa) * rd)))
-            # tempSv = np.sum(shapes[ind, 3] * (shapes[ind, 2]) * shapes[ind, 0]* tantv)
-
-            ftempv = np.exp(-(tempSv)) ### 到达该体元的概率
-            # tempds = 1-proj_roof ### 在该区域存在的概率
-            tempds = 1.0
-            ws =  if2*(1-np.sum(ftemp * fweiplus)/ fweiplusSum) * ftempv * tempds
-            # ws =  (if2*np.sum((1-ftemp) * fweiplus)/ fweiplusSum) * ftempv * tempds
-
-
-        ### 从街道到达墙壁
-        sw = 0
         for kshape1 in range(n_shape):
-            ### info for shape to receive
             shape1 = shapes[kshape1]
             length1 = shape1[0]
             width1 = shape1[1]
             height1 = shape1[2]
             alpha1 = shape1[3]
-            dheight = height1 / n_part
-            height1p = height1
-            ### for each part of tree
-            for kh in range(n_part):
-                ### info for shape to be projected
-                heighttemp = dheight * (kh+0.5)
-                # tempdS = length1 * dheight * tantv * alpha1
-                ### existance of shape1 in projection
-                tempdS = (length1 * dheight * alpha1)* tantv * np.abs(np.cos((vaa - laa) * rd)) +\
-                         (width1 * dheight * alpha1)* tantv * np.abs(np.cos((vaa - waa) * rd))
-                ftempv = 1.0  ### gap propertion in viewing direction
-                ### the one with higher height to project further
-                ind = (shapes[:,2]-heighttemp) > 0
-                if(np.sum(ind)>0):
-                    ### 从墙壁上一点到达建筑上部的概率
-                    proj_roof = np.sum(shapes[ind,1]*shapes[ind,0]*shapes[ind,3])
-                    ### projection area in hemispheric space
-                    tempSv =  (np.sum(shapes[ind,3] * (shapes[ind,2]-heighttemp) *shapes[ind,0])* tantv * np.abs(np.cos((vaa - laa) * rd)) +
-                            np.sum(shapes[ind,3] * (shapes[ind,2]-heighttemp) *shapes[ind,1]) * tantv * np.abs(np.cos((vaa - waa) * rd)))
-                    ftempv = np.exp(-(tempSv+proj_roof))
-                projStemp = 0
-                proj_roof = 0
-                ind = shapes[:, 2] <= heighttemp
-                ### the height lower than the reference part, using the building height
-                if (np.sum(ind) > 0):
-                    proj_roof = proj_roof + np.sum(shapes[ind, 1] * shapes[ind, 0] * shapes[ind, 3])
-                    projStemp = projStemp + (np.sum(shapes[ind,3] * shapes[ind,2] *shapes[ind,0])* tantemp * np.abs(np.cos((haa - laa) * rd)) +
-                                            np.sum(shapes[ind,3] * shapes[ind,2] *shapes[ind,1]) * tantemp * np.abs(np.cos((haa - waa) * rd)))
-                ind = shapes[:, 2] > heighttemp
-                ### the building height larger than the reference height, using the referneance height
-                if (np.sum(ind) > 0):
-                    proj_roof = proj_roof + np.sum(shapes[ind, 1] * shapes[ind, 0] * shapes[ind, 3])
-                    projStemp = projStemp + (np.sum(shapes[ind, 3] * heighttemp * shapes[ind, 0]) * tantemp * np.abs(np.cos((haa - laa) * rd)) +
-                                             np.sum(shapes[ind, 3] * heighttemp * shapes[ind, 1]) * tantemp * np.abs(np.cos((haa - waa) * rd)))
-                ftemp = np.exp(-(projStemp))
-                ### sum the downward hemispheric
-                sw = sw + (if2 * np.sum(ftemp * fweiplus)/ fweiplusSum) * tempdS * ftempv *0.5 * 0.5
+            heighttemp = height1
+            ind = (shapes[:, 2] - heighttemp) > 0
+            if (np.sum(ind) > 0):
+                projStemp = (np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 0]) * tantemp * np.abs(np.cos((haa - laa) * rd)) +
+                             np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 1]) * tantemp * np.abs(np.cos((haa - waa) * rd)))
+                ftemp = np.exp(-projStemp)
 
-        eww = Ewall * (1 - Ewall) * p * i0v
+                tempdS = length1 * width1 * alpha1
+                tempSv = (np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 0]) * tantv * np.abs(np.cos((vaa - laa) * rd)) +
+                          np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 1]) * tantv * np.abs(np.cos((vaa - waa) * rd)))
+                ftempv = np.exp(-tempSv)
+                wr =  wr + if2 * np.sum((1-ftemp) * fweiplus) * tempdS * ftempv/ fweiplusSum
+
+
+        heighttemp = 0
+        ws = 0
+        ind = (shapes[:, 2] - heighttemp) > 0
+        if (np.sum(ind) > 0):
+            projStemp = (np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 0]) * tantemp * np.abs(
+                np.cos((haa - laa) * rd)) +np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 1]) * tantemp * np.abs(
+                        np.cos((haa - waa) * rd)))
+            ftemp = np.exp(-projStemp)
+            tempSv = (np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 0]) * tantv * np.abs(
+                np.cos((vaa - laa) * rd)) +np.sum(shapes[ind, 3] * (shapes[ind, 2] - heighttemp) * shapes[ind, 1]) * tantv * np.abs(
+                        np.cos((vaa - waa) * rd)))
+            ftempv = np.exp(-tempSv)
+            tempds =1
+            ws = if2 * np.sum((1-ftemp) * fweiplus) * ftempv * tempds/ fweiplusSum
+
+
+        eww = Ewall * (1 - Ewall) * i0v * (p)
 
         # eww = Ewall * i0v /(1-p*(1-Ewall)) *(1-Ewall)
-        ews = Ewall * (1-Estreat)* ws
+
+        ews = Ewall * ws *(1-Estreat)
         ewr = Ewall *(1-Eroof) * wr
-        esw = Estreat *(1-Ewall) * sw
+        esw = Estreat *(1-Ewall) * i0v * ed
 
         vsraa = (180.0 - raa) / 180.0  # sunlit part becasue of raa
         vhraa = 1 - vsraa
 
-        ## 场景中有多少光照组分
         fts = 0
-        if (sza !=0):
-            area =  np.sum((shapes[:,3]*shapes[:,0] * shapes[:,2] * tants * np.abs(np.cos((saa - laa) * rd))) +
-                           (shapes[:,3]*shapes[:,1] * shapes[:,2] * tants * np.abs(np.cos((saa - waa) * rd))))
-            if area > 0:
-                fts = (1 - np.exp(-area)) / (area)
+        if sza !=0:
+            area =  np.sum((shapes[:,3]*shapes[:,0] * shapes[:,2] * tants* np.cos((saa - laa) * rd)) +
+                           (shapes[:,3]*shapes[:,1] * shapes[:,2] * tants * np.cos((saa - laa) * rd)))
+            fts = (1 - np.exp(-area)) / (area)
 
-        # eww = 0
-        # ews = 0
-        emw = ews + eww
-        emws = emw * fts
+        emw = eww+ews
+        emws = emw * fts * vhraa
         emwh = emw - emws
         ems = esw
         emss = ems * pStreatS
         emsh = ems - emss
 
-
-        if ifP == 1:
-            return emw,ems,0
-        elif ifP == 2:
-            return emws,emwh,emss,emsh,0,0
-        elif ifP ==3:
-            return 0,0,0,0,0,0
-        else:
-            return esw+ews+eww+ewr
-
+        return emw+ems
 
     def set_strcutural_input(self,shapes):
         self.shapes = shapes
@@ -744,12 +615,13 @@ class Urban:
     def calculate_effective_emissivity(self):
         emissivity_ = []
         for kangle in range(self.n_angle):
-            direct = self.calculate_direct_emissivity(kangle,1)
-            scatter = self.calculate_scattering_emissivity(kangle,1)
-            emissivity_.append(direct + scatter)
+            direct = self.calculate_direct_emissivity(kangle)
+            scatter = self.calculate_scattering_emissivity(kangle)
+            emissivity_.append( direct + scatter)
 
         self.canopy_effective_emissivity = np.asarray(emissivity_ )
         return np.asarray(emissivity_ )
+
 
     def calculate_effective_component_emissivity(self,ifP = 0):
         emissivity_ = []
